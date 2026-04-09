@@ -55,8 +55,6 @@ brew install mpv ffmpeg
 ya pack -a hash-BAY/muse.yazi
 ```
 
-> **Tip:** After updating `init.lua`, run `./sync.sh` to push changes to the plugin directory.
-
 ### Manual installation
 
 ```bash
