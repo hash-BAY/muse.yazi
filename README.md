@@ -5,8 +5,11 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Yazi](https://img.shields.io/badge/yazi-%3E%3D26-orange.svg)](https://github.com/sxyazi/yazi)
 [![mpv](https://img.shields.io/badge/requires-mpv-48bb78.svg)](https://mpv.io/)
+[![Status](https://img.shields.io/badge/status-alpha-yellow.svg)]()
 
 Auto-plays audio files on hover with metadata, progress bar, and instant track switching — all inside Yazi's preview pane.
+
+> ⚠️ **Early Alpha** — This plugin is under active development. Expect bugs, missing features, and occasional breaking changes. Feedback and issues are welcome!
 
 ---
 
