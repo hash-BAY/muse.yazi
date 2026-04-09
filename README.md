@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Yazi](https://img.shields.io/badge/yazi-%3E%3D26-orange.svg)](https://github.com/sxyazi/yazi)
-[![Lua](https://img.shields.io/badge/Lua-5.1+-2C2D72.svg)](https://www.lua.org/)
+[![mpv](https://img.shields.io/badge/requires-mpv-48bb78.svg)](https://mpv.io/)
 
 Auto-plays audio files on hover with metadata, progress bar, and instant track switching — all inside Yazi's preview pane.
 
