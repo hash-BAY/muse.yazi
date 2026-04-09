@@ -21,7 +21,7 @@ Auto-plays audio files on hover with metadata, progress bar, and instant track s
 
 ---
 
-## � Requirements
+## 📦 Requirements
 
 | Tool | Purpose | Install |
 |---|---|---|
@@ -49,17 +49,20 @@ brew install mpv ffmpeg
 
 ## 🚀 Installation
 
-### Quick setup
+### Using Yazi package manager (Recommended)
 
 ```bash
-# 1. Create plugin directory
-mkdir -p ~/.config/yazi/plugins/muse.yazi
-
-# 2. Copy main.lua
-cp init.lua ~/.config/yazi/plugins/muse.yazi/main.lua
+ya pack -a hash-BAY/muse.yazi
 ```
 
 > **Tip:** After updating `init.lua`, run `./sync.sh` to push changes to the plugin directory.
+
+### Manual installation
+
+```bash
+# Clone the repository
+git clone https://github.com/hash-BAY/muse.yazi ~/.config/yazi/plugins/muse.yazi
+```
 
 ---
 
@@ -116,18 +119,17 @@ prepend_previewers = [
 ## 🐛 Troubleshooting
 
 ### No sound?
-- Make sure `mpv` is installed and plays audio from the terminal
-- Check that you don't have `--no-terminal` in the mpv args (it blocks audio)
 
-### Keys not working?
-- Make sure `--no-input-terminal` is present in the mpv args
+- Make sure `mpv` is installed and plays audio from the terminal
 
 ### Plugin not loading?
+
 - Verify the directory is `~/.config/yazi/plugins/muse.yazi/` (must end in `.yazi`)
 - Verify the file is `main.lua` (not `init.lua`)
 - Check `yazi.toml` uses `run = "muse"` (not `muse.yazi`)
 
 ### Debug
+
 ```bash
 YAZI_LOG=debug yazi
 cat ~/.local/state/yazi/yazi.log | grep -i muse
