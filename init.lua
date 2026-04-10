@@ -1,27 +1,34 @@
--- Yazi Muse — Простая версия: мгновенный старт/стоп
--- mpv НЕ перехватывает клавиши + авто-стоп при уходе
+-- Yazi Muse — Автоплей с DDS автостопом
+-- DDS подписка ловит уход курсора с аудиофайла
+-- Уникальные теги исключают race condition
 local M = {}
 
 -- ============================================================
--- Хранилище состояния
+-- Хранилище состояния с уникальным тегом
 -- ============================================================
 local state = ya.sync(function(st)
 	if st.cache == nil then st.cache = {} end
+	if st.counter == nil then st.counter = 0 end
 	return {
 		url = st.url,
 		start = st.start,
 		cache = st.cache,
+		tag = st.tag,
+		counter = st.counter,
 	}
 end)
 
-local set_playing = ya.sync(function(st, url, start)
+local set_playing = ya.sync(function(st, url, start, tag)
 	st.url = url
 	st.start = start
+	st.tag = tag
+	st.counter = st.counter + 1
 end)
 
 local clear_state = ya.sync(function(st)
 	st.url = nil
 	st.start = nil
+	st.tag = nil
 end)
 
 -- ============================================================
@@ -32,9 +39,67 @@ local function fmt_time(sec)
 	return string.format("%02d:%02d", m, s)
 end
 
--- Мгновенное убийство (SIGKILL)
-local function kill_mpv()
-	Command("pkill"):arg({ "-9", "-f", "yazi-muse-mpv" }):output()
+-- Проверка: является ли файл аудио
+local function is_audio(url_str, mime)
+	mime = mime or ""
+	if mime:find("^audio/") then return true end
+	local ext = url_str:lower():match("%.([^.]+)$")
+	local audio_ext = {
+		mp3=true, wav=true, flac=true, ogg=true, m4a=true,
+		aac=true, wma=true, opus=true, aiff=true, alac=true,
+	}
+	return audio_ext[ext] or false
+end
+
+-- Убийство конкретного тега (из sync-контекста, только os.execute)
+local function kill_tag_sync(tag)
+	if tag then
+		os.execute("pkill -9 -f '" .. tag .. "' >/dev/null 2>&1 &")
+	end
+end
+
+-- ============================================================
+-- DDS Setup: глобальный отлов ухода курсора
+-- Вызывается из ~/.config/yazi/init.lua: require("muse"):setup()
+-- ============================================================
+function M:setup()
+	local function stop_if_left_audio()
+		local st = state()
+		if not st.tag then return end -- Ничего не играет
+
+		-- Проверяем текущий файл под курсором
+		local h = cx.active.current.hovered
+		local file_url = h and tostring(h.url) or ""
+		-- h.mime() в sync-контексте крашится — проверяем только по расширению
+		local file_mime = ""
+
+		if is_audio(file_url, file_mime) then
+			-- Курсор на аудио — но возможно на другом
+			if st.url and st.url ~= file_url then
+				kill_tag_sync(st.tag)
+				clear_state()
+			end
+		else
+			-- Курсор НЕ на аудио — убиваем
+			kill_tag_sync(st.tag)
+			clear_state()
+		end
+	end
+
+	-- Подписываемся на события навигации
+	ps.sub("hover", stop_if_left_audio)
+	ps.sub("cd", stop_if_left_audio)
+end
+
+-- ============================================================
+-- Убийство из peek (async-контекст — можно Command)
+-- ============================================================
+local function kill_current_mpv()
+	local st = state()
+	if st.tag then
+		Command("pkill"):arg({ "-9", "-f", st.tag }):output()
+		clear_state()
+	end
 end
 
 -- ============================================================
@@ -71,7 +136,7 @@ local function build_ui(job, file_name, meta, playing, elapsed, duration)
 			ui.Span("PLAYING"):fg("green"):bold(),
 		}))
 		table.insert(lines, ui.Line({
-			ui.Span(" "):fg("black"), -- пробел
+			ui.Span(" "):fg("black"),
 			ui.Span(fmt_time(current_time)):fg("white"),
 			ui.Span(" / "):fg("darkgray"),
 			ui.Span(fmt_time(duration or 0)):fg("white"),
@@ -102,7 +167,7 @@ local function render_widget(job, widget)
 end
 
 -- ============================================================
--- Peek — мгновенная реакция, mpv НЕ перехватывает клавиши
+-- Peek
 -- ============================================================
 function M:peek(job)
 	local file_url = tostring(job.file.url)
@@ -110,19 +175,20 @@ function M:peek(job)
 
 	local st = state()
 
-	-- === МГНОВЕННЫЙ СТОП при уходе с играющего файла ===
+	-- Если файл сменился на другое аудио — стоп старого
 	if st.url and st.url ~= file_url then
-		kill_mpv()
-		clear_state()
+		kill_current_mpv()
 		st = state()
 	end
 
-	-- === МГНОВЕННЫЙ СТАРТ для нового файла ===
+	-- Запускаем новое аудио
 	if not st.url or st.url ~= file_url then
-		kill_mpv()
-		-- --no-input-terminal: mpv НЕ читает клавиши с терминала
-		os.execute("mpv --no-video --really-quiet --no-input-terminal --force-media-title=yazi-muse-mpv '" .. file_url .. "' &")
-		set_playing(file_url, os.time())
+		-- Уникальный тег для каждого трека — нет race condition
+		local new_tag = "yazi-muse-mpv-" .. tostring(st.counter + 1)
+
+		os.execute("mpv --no-video --really-quiet --no-input-terminal --force-media-title='" .. new_tag .. "' '" .. file_url .. "' &")
+
+		set_playing(file_url, os.time(), new_tag)
 		st = state()
 	end
 

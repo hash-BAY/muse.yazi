@@ -18,8 +18,8 @@ Auto-plays audio files on hover with metadata, progress bar, and instant track s
 - 🎧 **Auto-play on hover** — cursor on an audio file → instant playback
 - 🏷️ **Metadata display** — Artist, Title, Album, Duration via `ffprobe` (cached)
 - 📊 **Animated progress bar** — real-time playback progress in the preview pane
-- ⚡ **Instant stop** — move away from the file → music cuts off immediately
-- ⌨️ **No key hijacking** — mpv ignores terminal input, Yazi stays in control
+- ⚡ **Instant stop** — move away from the file → music cuts off immediately (via DDS events)
+- 🔒 **Race-condition free** — each track gets a unique tag, so fast switching never kills the wrong process
 - 🪶 **Zero heavy deps** — just `mpv` + `ffmpeg`
 
 ---
@@ -65,6 +65,25 @@ ya pack -a hash-BAY/muse.yazi
 git clone https://github.com/hash-BAY/muse.yazi ~/.config/yazi/plugins/muse.yazi
 ```
 
+### Enable DDS auto-stop (Required)
+
+Yazi Muse uses DDS events to stop playback when you leave an audio file.
+This requires a global `init.lua` — **it does not exist by default** after Yazi installation.
+
+Create it (if missing) and add one line:
+
+```bash
+echo 'require("muse"):setup()' > ~/.config/yazi/init.lua
+```
+
+Or manually create/edit `~/.config/yazi/init.lua`:
+
+```lua
+require("muse"):setup()
+```
+
+> ⚠️ **Without this file:** Audio playback will NOT stop when you switch to non-audio files or leave the folder. Basic playback (hover → play, switch between audio files) will still work.
+
 ---
 
 ## ⚙️ Configuration
@@ -97,7 +116,8 @@ prepend_previewers = [
 |---|---|
 | Hover over an audio file | Instant playback + metadata display |
 | Move to another file | Previous track stops, new one starts |
-| Leave the music folder | Playback stops |
+| Switch to non-audio file | Playback stops immediately |
+| Leave the music folder | Playback stops immediately |
 
 ---
 
@@ -118,6 +138,11 @@ prepend_previewers = [
 ---
 
 ## 🐛 Troubleshooting
+
+### Music doesn't stop when I switch to a non-audio file?
+
+- Make sure you added `require("muse"):setup()` to `~/.config/yazi/init.lua`
+- Restart Yazi after adding it
 
 ### No sound?
 
@@ -145,7 +170,6 @@ cat ~/.local/state/yazi/yazi.log | grep -i muse
 - [ ] Playlist support (`.m3u`, `.cue`)
 - [ ] Keybindings: seek ±10s, volume control
 - [ ] Color scheme from user's `theme.toml`
-- [ ] Auto-stop via DDS when leaving the folder
 
 ---
 
