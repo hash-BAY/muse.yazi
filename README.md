@@ -16,11 +16,20 @@ Auto-plays audio files on hover with metadata, progress bar, and instant track s
 ## ✨ Features
 
 - 🎧 **Auto-play on hover** — cursor on an audio file → instant playback
-- 🏷️ **Metadata display** — Artist, Title, Album, Duration via `ffprobe` (cached)
+- 🏷️ **Rich metadata** — Artist, Title, Album, Track number, Duration via `ffprobe` (cached)
 - 📊 **Animated progress bar** — real-time playback progress in the preview pane
+- 🔧 **Technical details** — Codec, Bitrate, Sample rate, Channels displayed inline
 - ⚡ **Instant stop** — move away from the file → music cuts off immediately (via DDS events)
 - 🔒 **Race-condition free** — each track gets a unique tag, so fast switching never kills the wrong process
 - 🪶 **Zero heavy deps** — just `mpv` + `ffmpeg`
+
+---
+
+## 🎬 Demo
+
+<p align="center">
+  <img src="docs/muse.gif" alt="Yazi Muse Demo" width="800">
+</p>
 
 ---
 
@@ -125,13 +134,18 @@ prepend_previewers = [
 
 ```
 🎵 Nightcity.mp3
+
   📌 Title: Nightcity
   🎤 Artist: The Midnight
   💿 Album: Endless Summer
+  🔢 Track: 4/12
   ⏱ Duration: 04:28
+
+ 🎛️ mp3 📶 320kbps 📊 44.1kHz 🔊 stereo
 
  ▶ PLAYING
    01:15 / 04:28
+
  ████████████░░░░░░░░░░░░░░░░░░░░ 26%
 ```
 
@@ -165,7 +179,7 @@ cat ~/.local/state/yazi/yazi.log | grep -i muse
 
 ## 🚧 Roadmap
 
-- [ ] Album art extraction via `ffprobe`
+- [ ] Album art extraction and display (ASCII or native image)
 - [ ] Real-time progress from `mpv` IPC socket
 - [ ] Playlist support (`.m3u`, `.cue`)
 - [ ] Keybindings: seek ±10s, volume control

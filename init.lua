@@ -108,7 +108,8 @@ end
 local function build_ui(job, file_name, meta, playing, elapsed, duration)
 	local area = job.area
 	local lines = {
-		ui.Line({ ui.Span("🎵 "):fg("yellow"), ui.Span(file_name):bold() }),
+		ui.Line({ ui.Span(" 🎵 "):fg("yellow"), ui.Span(file_name):bold() }),
+		ui.Line({ ui.Span("") }),
 	}
 
 	if meta then
@@ -121,9 +122,44 @@ local function build_ui(job, file_name, meta, playing, elapsed, duration)
 		if meta.album then
 			table.insert(lines, ui.Line({ ui.Span("  💿 Album: "):fg("cyan"), ui.Span(meta.album) }))
 		end
+		if meta.track_num then
+			local track_str = meta.track_num
+			if meta.track_total then
+				track_str = track_str .. "/" .. meta.track_total
+			end
+			table.insert(lines, ui.Line({ ui.Span("  🔢 Track: "):fg("cyan"), ui.Span(track_str) }))
+		end
 		if meta.duration then
 			table.insert(lines, ui.Line({ ui.Span("  ⏱ Duration: "):fg("cyan"), ui.Span(fmt_time(meta.duration)) }))
 		end
+	end
+
+	table.insert(lines, ui.Line({ ui.Span("") }))
+
+	-- Технические характеристики (из streams)
+	if meta.codec or meta.bitrate or meta.sample_rate or meta.channels or meta.bit_depth then
+		local spans = { ui.Span(" ") }
+		if meta.codec then
+			table.insert(spans, ui.Span("🎛️ "):fg("gray"))
+			table.insert(spans, ui.Span(meta.codec .. " "):fg("cyan"))
+		end
+		if meta.bitrate then
+			table.insert(spans, ui.Span("📶 "):fg("gray"))
+			table.insert(spans, ui.Span(meta.bitrate .. " "):fg("cyan"))
+		end
+		if meta.sample_rate then
+			table.insert(spans, ui.Span("📊 "):fg("gray"))
+			table.insert(spans, ui.Span(meta.sample_rate .. " "):fg("cyan"))
+		end
+		if meta.bit_depth then
+			table.insert(spans, ui.Span("🔢 "):fg("gray"))
+			table.insert(spans, ui.Span(meta.bit_depth .. " "):fg("cyan"))
+		end
+		if meta.channels then
+			table.insert(spans, ui.Span("🔊 "):fg("gray"))
+			table.insert(spans, ui.Span(meta.channels):fg("cyan"))
+		end
+		table.insert(lines, ui.Line(spans))
 	end
 
 	table.insert(lines, ui.Line({ ui.Span("") }))
@@ -158,14 +194,6 @@ local function build_ui(job, file_name, meta, playing, elapsed, duration)
 	return ui.Text(lines):area(area)
 end
 
-local function render_widget(job, widget)
-	if ya.preview_widgets then
-		ya.preview_widgets(job, { widget })
-	else
-		ya.preview_widget(job, widget)
-	end
-end
-
 -- ============================================================
 -- Peek
 -- ============================================================
@@ -198,6 +226,7 @@ function M:peek(job)
 		local output = Command("ffprobe"):arg({
 			"-v", "quiet",
 			"-show_format",
+			"-show_streams",
 			"-print_format", "json",
 			file_url,
 		}):output()
@@ -205,12 +234,62 @@ function M:peek(job)
 		if output and output.status and output.status.success then
 			local ok, json = pcall(ya.json_decode, output.stdout)
 			if ok and json and json.format then
+				local format = json.format
+				local stream = json.streams and json.streams[1] or {}
+
+				-- Парсим номер трека: может быть "4", "4/12", "04"
+				local track_raw = format.tags and format.tags.track
+				local track_num, track_total = nil, nil
+				if track_raw then
+					track_num, track_total = track_raw:match("^(%d+)/(%d+)$")
+					if not track_num then
+						track_num = track_raw:match("^(%d+)$")
+					end
+				end
+
+				-- Формат: теги и длительность
 				meta = {
-					title = json.format.tags and json.format.tags.title,
-					artist = json.format.tags and json.format.tags.artist,
-					album = json.format.tags and json.format.tags.album,
-					duration = tonumber(json.format.duration),
+					title = format.tags and format.tags.title,
+					artist = format.tags and format.tags.artist,
+					album = format.tags and format.tags.album,
+					duration = tonumber(format.duration),
+					track_num = track_num,
+					track_total = track_total,
 				}
+
+				-- Поток: технические характеристики
+				if stream.codec_name then
+					meta.codec = stream.codec_name
+				end
+				if stream.bit_rate then
+					local br = tonumber(stream.bit_rate)
+					if br then meta.bitrate = math.floor(br / 1000) .. "kbps" end
+				elseif format.bit_rate then
+					local br = tonumber(format.bit_rate)
+					if br then meta.bitrate = math.floor(br / 1000) .. "kbps" end
+				end
+				if stream.sample_rate then
+					local sr = tonumber(stream.sample_rate)
+					if sr then
+						if sr >= 1000 then
+							meta.sample_rate = string.format("%.1fkHz", sr / 1000)
+						else
+							meta.sample_rate = sr .. "Hz"
+						end
+					end
+				end
+				if stream.channels then
+					local ch = stream.channels
+					if ch == 1 then meta.channels = "mono"
+					elseif ch == 2 then meta.channels = "stereo"
+					else meta.channels = ch .. "ch" end
+				elseif stream.channel_layout then
+					meta.channels = stream.channel_layout
+				end
+				if stream.bits_per_sample and stream.bits_per_sample > 0 then
+					meta.bit_depth = stream.bits_per_sample .. "-bit"
+				end
+
 				st.cache[file_url] = meta
 			end
 		end
@@ -221,7 +300,12 @@ function M:peek(job)
 	local elapsed = st.start and (os.time() - st.start) or 0
 	local duration = meta and meta.duration or 0
 	local widget = build_ui(job, file_name, meta, playing, elapsed, duration)
-	render_widget(job, widget)
+
+	if ya.preview_widgets then
+		ya.preview_widgets(job, { widget })
+	else
+		ya.preview_widget(job, widget)
+	end
 
 	-- Анимация прогресса
 	if playing then
@@ -231,7 +315,12 @@ function M:peek(job)
 
 			local elapsed2 = st2.start and (os.time() - st2.start) or 0
 			local w = build_ui(job, file_name, meta, true, elapsed2, duration)
-			render_widget(job, w)
+
+			if ya.preview_widgets then
+				ya.preview_widgets(job, { w })
+			else
+				ya.preview_widget(job, w)
+			end
 
 			ya.sleep(0.5)
 		end
