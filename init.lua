@@ -1,10 +1,10 @@
--- Yazi Muse — Автоплей с DDS автостопом
--- DDS подписка ловит уход курсора с аудиофайла
--- Уникальные теги исключают race condition
+-- Yazi Muse — Auto-play with DDS auto-stop
+-- DDS hooks catch cursor leaving audio file
+-- Unique tags prevent race conditions
 local M = {}
 
 -- ============================================================
--- Хранилище состояния с уникальным тегом
+-- State store with unique tag
 -- ============================================================
 local state = ya.sync(function(st)
 	if st.cache == nil then st.cache = {} end
@@ -39,7 +39,7 @@ local function fmt_time(sec)
 	return string.format("%02d:%02d", m, s)
 end
 
--- Проверка: является ли файл аудио
+-- Check if file is audio
 local function is_audio(url_str, mime)
 	mime = mime or ""
 	if mime:find("^audio/") then return true end
@@ -51,7 +51,7 @@ local function is_audio(url_str, mime)
 	return audio_ext[ext] or false
 end
 
--- Убийство конкретного тега (из sync-контекста, только os.execute)
+-- Kill specific tag (sync context, os.execute only)
 local function kill_tag_sync(tag)
 	if tag then
 		os.execute("pkill -9 -f '" .. tag .. "' >/dev/null 2>&1 &")
@@ -59,40 +59,40 @@ local function kill_tag_sync(tag)
 end
 
 -- ============================================================
--- DDS Setup: глобальный отлов ухода курсора
--- Вызывается из ~/.config/yazi/init.lua: require("muse"):setup()
+-- DDS Setup: global cursor tracking
+-- Called from ~/.config/yazi/init.lua
 -- ============================================================
 function M:setup()
 	local function stop_if_left_audio()
 		local st = state()
-		if not st.tag then return end -- Ничего не играет
+		if not st.tag then return end -- Nothing playing
 
-		-- Проверяем текущий файл под курсором
+		-- Check current file under cursor
 		local h = cx.active.current.hovered
 		local file_url = h and tostring(h.url) or ""
-		-- h.mime() в sync-контексте крашится — проверяем только по расширению
+		-- h.mime() crashes in sync context; check extension only
 		local file_mime = ""
 
 		if is_audio(file_url, file_mime) then
-			-- Курсор на аудио — но возможно на другом
+			-- On audio — maybe different track
 			if st.url and st.url ~= file_url then
 				kill_tag_sync(st.tag)
 				clear_state()
 			end
 		else
-			-- Курсор НЕ на аудио — убиваем
+			-- Not audio — kill
 			kill_tag_sync(st.tag)
 			clear_state()
 		end
 	end
 
-	-- Подписываемся на события навигации
+	-- Subscribe to navigation events
 	ps.sub("hover", stop_if_left_audio)
 	ps.sub("cd", stop_if_left_audio)
 end
 
 -- ============================================================
--- Убийство из peek (async-контекст — можно Command)
+-- Kill from peek (async context, uses Command)
 -- ============================================================
 local function kill_current_mpv()
 	local st = state()
@@ -103,7 +103,7 @@ local function kill_current_mpv()
 end
 
 -- ============================================================
--- Отрисовка UI
+-- UI Rendering
 -- ============================================================
 local function build_ui(job, file_name, meta, playing, elapsed, duration)
 	local area = job.area
@@ -136,28 +136,28 @@ local function build_ui(job, file_name, meta, playing, elapsed, duration)
 
 	table.insert(lines, ui.Line({ ui.Span("") }))
 
-	-- Технические характеристики (из streams)
+	-- Technical details (from streams)
 	if meta.codec or meta.bitrate or meta.sample_rate or meta.channels or meta.bit_depth then
 		local spans = { ui.Span(" ") }
 		if meta.codec then
-			table.insert(spans, ui.Span("🎛️ "):fg("gray"))
-			table.insert(spans, ui.Span(meta.codec .. " "):fg("cyan"))
+			table.insert(spans, ui.Span("🎛️ "):fg("green"))
+			table.insert(spans, ui.Span(meta.codec .. " "):fg("gray"))
 		end
 		if meta.bitrate then
-			table.insert(spans, ui.Span("📶 "):fg("gray"))
-			table.insert(spans, ui.Span(meta.bitrate .. " "):fg("cyan"))
+			table.insert(spans, ui.Span("📶 "):fg("green"))
+			table.insert(spans, ui.Span(meta.bitrate .. " "):fg("gray"))
 		end
 		if meta.sample_rate then
-			table.insert(spans, ui.Span("📊 "):fg("gray"))
-			table.insert(spans, ui.Span(meta.sample_rate .. " "):fg("cyan"))
+			table.insert(spans, ui.Span("📊 "):fg("green"))
+			table.insert(spans, ui.Span(meta.sample_rate .. " "):fg("gray"))
 		end
 		if meta.bit_depth then
-			table.insert(spans, ui.Span("🔢 "):fg("gray"))
-			table.insert(spans, ui.Span(meta.bit_depth .. " "):fg("cyan"))
+			table.insert(spans, ui.Span("🔢 "):fg("green"))
+			table.insert(spans, ui.Span(meta.bit_depth .. " "):fg("gray"))
 		end
 		if meta.channels then
-			table.insert(spans, ui.Span("🔊 "):fg("gray"))
-			table.insert(spans, ui.Span(meta.channels):fg("cyan"))
+			table.insert(spans, ui.Span("🔊 "):fg("green"))
+			table.insert(spans, ui.Span(meta.channels):fg("gray"))
 		end
 		table.insert(lines, ui.Line(spans))
 	end
@@ -203,15 +203,15 @@ function M:peek(job)
 
 	local st = state()
 
-	-- Если файл сменился на другое аудио — стоп старого
+	-- File changed to different audio — stop old
 	if st.url and st.url ~= file_url then
 		kill_current_mpv()
 		st = state()
 	end
 
-	-- Запускаем новое аудио
+	-- Launch new audio
 	if not st.url or st.url ~= file_url then
-		-- Уникальный тег для каждого трека — нет race condition
+		-- Unique tag per track — no race condition
 		local new_tag = "yazi-muse-mpv-" .. tostring(st.counter + 1)
 
 		os.execute("mpv --no-video --really-quiet --no-input-terminal --force-media-title='" .. new_tag .. "' '" .. file_url .. "' &")
@@ -220,7 +220,7 @@ function M:peek(job)
 		st = state()
 	end
 
-	-- Проверяем кэш метаданных
+	-- Check metadata cache
 	local meta = st.cache[file_url]
 	if not meta then
 		local output = Command("ffprobe"):arg({
@@ -237,7 +237,7 @@ function M:peek(job)
 				local format = json.format
 				local stream = json.streams and json.streams[1] or {}
 
-				-- Парсим номер трека: может быть "4", "4/12", "04"
+				-- Parse track number: "4", "4/12", "04"
 				local track_raw = format.tags and format.tags.track
 				local track_num, track_total = nil, nil
 				if track_raw then
@@ -247,7 +247,7 @@ function M:peek(job)
 					end
 				end
 
-				-- Формат: теги и длительность
+				-- Format: tags and duration
 				meta = {
 					title = format.tags and format.tags.title,
 					artist = format.tags and format.tags.artist,
@@ -257,7 +257,7 @@ function M:peek(job)
 					track_total = track_total,
 				}
 
-				-- Поток: технические характеристики
+				-- Stream: technical details
 				if stream.codec_name then
 					meta.codec = stream.codec_name
 				end
@@ -295,7 +295,7 @@ function M:peek(job)
 		end
 	end
 
-	-- Рендер первого кадра
+	-- Render first frame
 	local playing = (st.url == file_url)
 	local elapsed = st.start and (os.time() - st.start) or 0
 	local duration = meta and meta.duration or 0
@@ -307,7 +307,7 @@ function M:peek(job)
 		ya.preview_widget(job, widget)
 	end
 
-	-- Анимация прогресса
+	-- Progress animation
 	if playing then
 		while true do
 			local st2 = state()

@@ -5,11 +5,9 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Yazi](https://img.shields.io/badge/yazi-%3E%3D26-orange.svg)](https://github.com/sxyazi/yazi)
 [![mpv](https://img.shields.io/badge/requires-mpv-48bb78.svg)](https://mpv.io/)
-[![Status](https://img.shields.io/badge/status-alpha-yellow.svg)]()
+[![Status](https://img.shields.io/badge/status-beta-green.svg)]()
 
 Auto-plays audio files on hover with metadata, progress bar, and instant track switching — all inside Yazi's preview pane.
-
-> ⚠️ **Early Alpha** — This plugin is under active development. Expect bugs, missing features, and occasional breaking changes. Feedback and issues are welcome!
 
 ---
 
@@ -20,7 +18,6 @@ Auto-plays audio files on hover with metadata, progress bar, and instant track s
 - 📊 **Animated progress bar** — real-time playback progress in the preview pane
 - 🔧 **Technical details** — Codec, Bitrate, Sample rate, Channels displayed inline
 - ⚡ **Instant stop** — move away from the file → music cuts off immediately (via DDS events)
-- 🔒 **Race-condition free** — each track gets a unique tag, so fast switching never kills the wrong process
 - 🪶 **Zero heavy deps** — just `mpv` + `ffmpeg`
 
 ---
